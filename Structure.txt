@@ -1,0 +1,41 @@
+PROJET_SYSMER/
+
+│
+
+├── Lanceur_IHM.py <-- Le script de l'Interface Graphique qui orchestre le tout
+
+│
+
+├── 📁 scripts/ <-- Tes codes exacts du dossier2 (intouchés)
+
+│ ├── Intrinsec.py
+
+│ ├── Extrinsec.py
+
+│ ├── Redressement.py
+
+│ └── Tracking.py
+
+│
+
+├── 📁 donnees_calibration/ <-- Le dossier "mémoire" (fichiers .npy)
+
+│ ├── 📁 intrinseques/  (Ici s'enregistreront K1, D1, K2, D2, les erreurs, etc.)
+
+│ ├── 📁 extrinseques/ (Ici s'enregistreront R_c2_c1, t_c2_c1, etc.)
+
+│ └── 📁 environnement/ (Ici s'enregistreront R_redressement, hauteur_cam1, etc.)
+
+│
+
+├── 📁 modeles/ <-- Le dossier pour ranger ton IA
+
+│ └── best.pt (Ton modèle YOLO)
+
+│
+
+└── 📁 resultats_tracking/ <-- Le dossier pour les exports du direct
+
+├── trajectoire_robot_temps_reel.tsv
+
+└── erreurs_triangulation_yolo_temps_reel.npy
