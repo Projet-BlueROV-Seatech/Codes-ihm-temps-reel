@@ -18,6 +18,12 @@ from scipy.spatial.transform import Rotation as Rot
 from scipy.optimize import minimize
 import os
 import sys
+import tkinter as tk
+from tkinter import messagebox, simpledialog
+
+# Initialisation d'une fenêtre Tkinter cachée pour les pop-ups
+popup_root = tk.Tk()
+popup_root.withdraw()
 
 # =============================================================================
 # 1. CONFIGURATION
@@ -25,8 +31,19 @@ import sys
 DOSSIER_INTRIN = r"../donnees_calibration/intrinseques"
 DOSSIER_SORTIE = r"../donnees_calibration/extrinseques"
 
-ID_CAM1 = 0
-ID_CAM2 = 1
+# Valeurs par défaut
+ID_CAM1 = 1
+ID_CAM2 = 0
+
+# Récupération des IDs envoyés par l'IHM
+if len(sys.argv) >= 3:
+    try:
+        ID_CAM1 = int(sys.argv[1])
+        ID_CAM2 = int(sys.argv[2])
+    except ValueError:
+        print(" Arguments caméras invalides, utilisation de 0 et 1 par défaut.")
+
+print(f" Utilisation de la Caméra 1 (ID: {ID_CAM1}) et Caméra 2 (ID: {ID_CAM2})")
 
 # Géométrie de la mire
 L   = 0.088
@@ -51,9 +68,11 @@ try:
     D1 = np.load(os.path.join(DOSSIER_INTRIN, "D1.npy"))
     K2 = np.load(os.path.join(DOSSIER_INTRIN, "K2.npy"))
     D2 = np.load(os.path.join(DOSSIER_INTRIN, "D2.npy"))
-    print(f"✅ K et D chargés depuis : {DOSSIER_INTRIN}")
+    print(f" K et D chargés depuis : {DOSSIER_INTRIN}")
 except FileNotFoundError as e:
-    print(f"❌ Erreur : Fichier intrinsèque introuvable. ({e})")
+    print(f" Erreur : Fichier intrinsèque introuvable. ({e})")
+    # --- MODIFICATION : Pop-up erreur critique ---
+    messagebox.showerror("Erreur de Fichier", f"Fichiers intrinsèques introuvables.\nAvez-vous fait l'étape 1 ?\n\nDétails: {e}")
     sys.exit(1)
 
 # =============================================================================
@@ -145,7 +164,7 @@ def reprojection_error(pts3d, pts2d_undist, K, rvec, tvec):
 # 4. FONCTION DE CALCUL ET D'AFFICHAGE 3D
 # =============================================================================
 def executer_calibration(marq1, marq2, communs):
-    print(f"\n🚀 Lancement du calcul sur {len(communs)} points communs...")
+    print(f"\n Lancement du calcul sur {len(communs)} points communs...")
     ids_sel = sorted(list(communs))
     
     pts1_px = np.array([marq1[mid] for mid in ids_sel], dtype=np.float64)
@@ -193,7 +212,7 @@ def executer_calibration(marq1, marq2, communs):
     tvec2_opt = c2Mw_opt[:3, 3]
     err2_opt = reprojection_error(wXs_3d, pts2_ud, K2, rvec2_opt, tvec2_opt)
     
-    print(f"\n📊 ERREURS :")
+    print(f"\n ERREURS :")
     print(f"Cam1 Reprojection : {err1:.3f} px")
     print(f"Cam2 Reprojection : {err2_opt:.3f} px")
     print(f"Coût Nelder-Mead  : {res.fun:.6e}")
@@ -240,7 +259,9 @@ cap1 = cv2.VideoCapture(ID_CAM1)
 cap2 = cv2.VideoCapture(ID_CAM2)
 
 if not cap1.isOpened() or not cap2.isOpened():
-    print("❌ Erreur : Impossible d'ouvrir les deux caméras.")
+    print(" Erreur : Impossible d'ouvrir les deux caméras.")
+    # --- MODIFICATION : Pop-up erreur critique ---
+    messagebox.showerror("Erreur Caméras", "Impossible d'ouvrir les flux vidéo.\nVérifiez les IDs des caméras ou leurs branchements.")
     sys.exit(1)
 
 cap1.set(cv2.CAP_PROP_FRAME_WIDTH, 640); cap1.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -249,8 +270,8 @@ cap2.set(cv2.CAP_PROP_FRAME_WIDTH, 640); cap2.set(cv2.CAP_PROP_FRAME_HEIGHT, 480
 stable_frames = 0
 capture_active = False # NOUVEAU : Variable pour bloquer la capture avant l'appui sur Entrée
 
-print(f"\n🟢 Démarrage du flux. Objectif : {TARGET_ARUCOS} ArUcos communs.")
-print("👉 Placez votre mire et appuyez sur 'ENTRÉE' pour lancer l'analyse de stabilité.")
+print(f"\n Démarrage du flux. Objectif : {TARGET_ARUCOS} ArUcos communs.")
+print(" Placez votre mire et appuyez sur 'ENTRÉE' pour lancer l'analyse de stabilité.")
 
 while True:
     ret1, frame1 = cap1.read()
@@ -280,7 +301,7 @@ while True:
     cv2.putText(frame1, f"Communs: {nb_communs} / {TARGET_ARUCOS}", (20, 40), 
                 cv2.FONT_HERSHEY_SIMPLEX, 1, couleur_texte, 2)
     
-    # MODIFICATION : On ne vérifie la stabilité que si l'utilisateur a appuyé sur Entrée
+    # Vérifie la stabilité que si l'utilisateur a appuyé sur Entrée
     if capture_active:
         if nb_communs >= TARGET_ARUCOS:
             stable_frames += 1
@@ -297,25 +318,34 @@ while True:
     cv2.imshow('Cam 1', frame1)
     cv2.imshow('Cam 2', frame2)
 
-    # MODIFICATION : Gestion des touches du clavier
+    # Gestion des touches du clavier
     key = cv2.waitKey(1)
     if key == ord('q'):
-        print("❌ Quitté par l'utilisateur.")
+        print(" Quitté par l'utilisateur.")
         break
     elif key == 13: # 13 correspond à la touche ENTRÉE
         capture_active = True
         stable_frames = 0
-        print("\n▶️ Analyse de stabilité en cours (10 frames requises)...")
+        print("\n Analyse de stabilité en cours (10 frames requises)...")
 
-    # MODIFICATION : Seuil passé de 3 à 10 frames
+    # Si on est stable
     if stable_frames >= 10:
-        print("\n⏸️ 10 frames stables atteintes. Flux en pause. Calcul en cours...")
+        print("\n 10 frames stables atteintes. Flux en pause. Calcul en cours...")
         
         c2Mc1, wMc1, wMc2, err1, err2, delta_t, delta_R, cout_opt = executer_calibration(marq1, marq2, communs)
         
-        choix = input("👉 Cette calibration vous convient-elle ? (O/N) : ").strip().lower()
+        # --- MODIFICATION : Remplacement de input() par des boîtes de dialogue ---
+        # Le graphique 3D se ferme, puis cette boîte de dialogue s'ouvre :
+        valide = messagebox.askyesno(
+            "Validation de la calibration",
+            f"La vue 3D a été fermée.\n\n"
+            f"ERREURS DE REPROJECTION :\n"
+            f"• Caméra 1 : {err1:.3f} px\n"
+            f"• Caméra 2 : {err2:.3f} px\n\n"
+            f"Cette calibration vous convient-elle ?"
+        )
         
-        if choix == 'o':
+        if valide: # Équivalent à 'o'
             R_rel = c2Mc1[:3, :3]
             t_rel = c2Mc1[:3, 3]
             np.save(os.path.join(DOSSIER_SORTIE, "R_c2_c1.npy"), R_rel)
@@ -332,20 +362,30 @@ while True:
             }, dtype=object)
             np.save(os.path.join(DOSSIER_SORTIE, "erreurs_extrinseques.npy"), erreurs_extrinseques)
             
-            print(f"💾 Matrices ET erreurs sauvegardées dans {DOSSIER_SORTIE}. Fin du programme.")
-            break
-        else:
-            try:
-                nouv_seuil = int(input(f"Entrez le nouveau nombre d'ArUcos cible (actuel = {TARGET_ARUCOS}) : "))
-                TARGET_ARUCOS = nouv_seuil
-            except ValueError:
-                print("Entrée invalide. Le seuil reste le même.")
+            print(f" Matrices ET erreurs sauvegardées dans {DOSSIER_SORTIE}. Fin du programme.")
             
-            # MODIFICATION : Réinitialisation si on refuse la calibration
+            # Pop-up de confirmation de sauvegarde avant de fermer
+            messagebox.showinfo("Succès", f" Matrices et erreurs sauvegardées dans :\n{DOSSIER_SORTIE}")
+            break
+        else: # Équivalent à 'n'
+            # Boîte de dialogue pour demander un nouveau seuil
+            nouv_seuil = simpledialog.askinteger(
+                "Ajustement du seuil",
+                f"La calibration a été rejetée.\n\nEntrez le nouveau nombre d'ArUcos cible :",
+                initialvalue=TARGET_ARUCOS,
+                minvalue=5,
+                maxvalue=36
+            )
+            
+            if nouv_seuil is not None:
+                TARGET_ARUCOS = nouv_seuil
+            
+            # Réinitialisation si on refuse la calibration
             stable_frames = 0
             capture_active = False # On repasse en attente d'un nouvel appui sur Entrée
-            print("\n▶️ Reprise du flux vidéo... Replacez la mire et appuyez sur ENTRÉE.")
+            print("\n Reprise du flux vidéo... Replacez la mire et appuyez sur ENTRÉE.")
 
 cap1.release()
 cap2.release()
 cv2.destroyAllWindows()
+popup_root.destroy()
