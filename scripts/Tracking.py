@@ -5,6 +5,9 @@ from ultralytics import YOLO
 from collections import deque
 import time
 import csv
+import sys
+import tkinter as tk
+from tkinter import messagebox
 
 # =================================================================
 # 1. CHARGEMENT DES MATRICES DE CALIBRATION
@@ -25,8 +28,12 @@ try:
     R_init = np.load(os.path.join(DOSSIER_EXTRIN, "R_c2_c1.npy"))
     T_init = np.load(os.path.join(DOSSIER_EXTRIN, "t_c2_c1.npy")).reshape(3, 1)
 except Exception as e:
-    print(f"❌ Erreur de fichiers : {e}")
-    exit()
+    print(f" Erreur de fichiers : {e}")
+    # --- MODIFICATION : Pop-up erreur critique ---
+    popup_root = tk.Tk(); popup_root.withdraw()
+    messagebox.showerror("Erreur de Fichiers", f"Fichiers de calibration introuvables.\nAvez-vous fait les étapes précédentes ?\n\nDétails: {e}")
+    popup_root.destroy()
+    sys.exit(1)
 
 # =================================================================
 # 2. CHARGEMENT DU REDRESSEMENT DU REPÈRE
@@ -42,14 +49,14 @@ if os.path.exists(os.path.join(DOSSIER_ENVIRONNEMENT, "R_redressement.npy")):
     except FileNotFoundError:
         hauteur_cam1 = 0.0
     sol_actif = True
-    print(f"✅ R_redressement chargé.")
+    print(f" R_redressement chargé.")
 else:
-    print("⚠️ Attention : Fichiers de redressement introuvables. Le repère par défaut sera utilisé.")
+    print(" Attention : Fichiers de redressement introuvables. Le repère par défaut sera utilisé.")
 
 pos_cam2_brut = (-R_init.T @ T_init).flatten()
 pos_cam2_w    = R_redressement @ pos_cam2_brut
 pos_cam2      = np.array([pos_cam2_w[0], hauteur_cam1 - pos_cam2_w[1], pos_cam2_w[2]])
-print(f"✅ Prêt. Hauteur caméras calculée : ~{hauteur_cam1:.2f}m")
+print(f" Prêt. Hauteur caméras calculée : ~{hauteur_cam1:.2f}m")
 
 model = YOLO(CHEMIN_MODELE)
 
@@ -235,9 +242,23 @@ def build_frame(frame1, frame2, robot_pos):
 # =================================================================
 # 5. BOUCLE DE TRACKING EN DIRECT (Avec Enregistrement TSV)
 # =================================================================
+# Valeurs par défaut
+ID_CAM1 = 1
+ID_CAM2 = 0
+
+# Récupération des IDs envoyés par l'IHM
+if len(sys.argv) >= 3:
+    try:
+        ID_CAM1 = int(sys.argv[1])
+        ID_CAM2 = int(sys.argv[2])
+    except ValueError:
+        print(" Arguments caméras invalides, utilisation de 0 et 1 par défaut.")
+
+print(f" Lancement du Tracking avec Caméra 1 (ID: {ID_CAM1}) et Caméra 2 (ID: {ID_CAM2})")
+
 # 1. Ouverture des flux en direct
-cap1 = cv2.VideoCapture(0)
-cap2 = cv2.VideoCapture(1)
+cap1 = cv2.VideoCapture(ID_CAM1)
+cap2 = cv2.VideoCapture(ID_CAM2)
 
 # 2. Forcer la résolution pour matcher exactement avec la calibration
 cap1.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -248,12 +269,16 @@ cap2.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
 # Vérification rapide
 if not cap1.isOpened() or not cap2.isOpened():
-    print("❌ Erreur : Impossible d'ouvrir l'une des caméras (0 ou 2).")
-    exit()
+    print(" Erreur : Impossible d'ouvrir l'une des caméras.")
+    # --- MODIFICATION : Pop-up erreur critique ---
+    popup_root = tk.Tk(); popup_root.withdraw()
+    messagebox.showerror("Erreur Caméras", "Impossible d'ouvrir l'une des caméras.\nVérifiez les branchements et si les IDs sont corrects.")
+    popup_root.destroy()
+    sys.exit(1)
 
 # Initialisation Fichier TSV
 os.makedirs(DOSSIER_RESULTATS, exist_ok=True) # Sécurité pour s'assurer que le dossier existe
-chemin_tsv = os.path.join(DOSSIER_RESULTATS, "trajectoire_robot_temps_reel.tsv")
+chemin_tsv = os.path.join(DOSSIER_RESULTATS, "trajectoire_robot_sequence5_2204.tsv")
 fichier_tsv = open(chemin_tsv, mode='w', newline='')
 writer_tsv = csv.writer(fichier_tsv, delimiter='\t')
 writer_tsv.writerow(['Frame', 'Temps(s)', 'X(m)', 'Y(m)', 'Z(m)']) 
@@ -265,7 +290,7 @@ enregistrement_actif = True
 
 erreurs_triangulation = []
 
-print("\n▶️  Tracking DIRECT démarré — [Q] quitter  [ESPACE] pause  [R] Enregistrement\n")
+print("\n  Tracking DIRECT démarré — [Q] quitter  [ESPACE] pause  [R] Enregistrement\n")
 
 cv2.namedWindow("SYSMER Tracker", cv2.WINDOW_NORMAL)
 cv2.resizeWindow("SYSMER Tracker", TOTAL_W, TOTAL_H)
@@ -300,7 +325,7 @@ try:
 
                 X_brut, Y_brut, Z_brut = triangulate_robot(pt1_c, pt2_c, P1, P2)
 
-                # ---> AJOUT : Calcul de l'erreur de triangulation <---
+                # Calcul de l'erreur de triangulation
                 p4d = np.array([X_brut, Y_brut, Z_brut, 1.0])
                 p2d_1 = (P1 @ p4d)[:2] / (P1 @ p4d)[2]
                 p2d_2 = (P2 @ p4d)[:2] / (P2 @ p4d)[2]
@@ -308,14 +333,11 @@ try:
                 err_t1 = np.linalg.norm(pt1_c.flatten() - p2d_1)
                 err_t2 = np.linalg.norm(pt2_c.flatten() - p2d_2)
                 
-                # On ajoute l'erreur uniquement si on enregistre, ou en continu selon ton choix
-                # (Ici on l'enregistre en continu pour avoir la stat globale)
                 erreurs_triangulation.append((err_t1 + err_t2) / 2.0)
-                # ----------------------------------------------------
 
                 P_redresse = R_redressement @ np.array([X_brut, Y_brut, Z_brut])
                 
-                # ✅ APPLICATION DE LA HAUTEUR
+                #  APPLICATION DE LA HAUTEUR
                 X = P_redresse[0]
                 Y = hauteur_cam1 - P_redresse[1] 
                 Z = P_redresse[2]
@@ -347,11 +369,23 @@ try:
             enregistrement_actif = not enregistrement_actif
 
 finally:
+    # --- MODIFICATION : Libération propre et Pop-up Bilan ---
     cap1.release()
     cap2.release()
     cv2.destroyAllWindows()
     fichier_tsv.close()
-    print("✅ Sauvegarde TSV propre terminée !")
+    print(" Sauvegarde TSV propre terminée !")
+    
+    # On prépare le message de fin
+    msg_fin = f" Tracking terminé !\n\nLes données de trajectoire ont été sauvegardées dans :\n{chemin_tsv}"
+    
     if erreurs_triangulation:
         np.save(os.path.join(DOSSIER_RESULTATS, "erreurs_triangulation_yolo_temps_reel.npy"), np.array(erreurs_triangulation))
-        print(f"📊 Erreur moyenne de triangulation YOLO : {np.mean(erreurs_triangulation):.3f} px")
+        err_moyenne = np.mean(erreurs_triangulation)
+        print(f" Erreur moyenne de triangulation YOLO : {err_moyenne:.3f} px")
+        msg_fin += f"\n\n Bilan qualité :\nErreur moyenne de triangulation : {err_moyenne:.3f} pixels"
+        
+    # Création du pop-up final
+    popup_root = tk.Tk(); popup_root.withdraw()
+    messagebox.showinfo("Fin du Tracking", msg_fin)
+    popup_root.destroy()
