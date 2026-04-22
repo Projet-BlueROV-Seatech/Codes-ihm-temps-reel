@@ -6,14 +6,14 @@ DOSSIER_INTRIN = r"../donnees_calibration/intrinseques"
 DOSSIER_EXTRIN = r"../donnees_calibration/extrinseques"
 
 # 1. Chargement des K et des paramètres stéréo
-print("⏳ Chargement des matrices...")
+print(" Chargement des matrices...")
 try:
     K1 = np.load(os.path.join(DOSSIER_INTRIN, "K1.npy"))
     K2 = np.load(os.path.join(DOSSIER_INTRIN, "K2.npy"))
     R  = np.load(os.path.join(DOSSIER_EXTRIN, "R_c2_c1.npy"))
     T  = np.load(os.path.join(DOSSIER_EXTRIN, "t_c2_c1.npy"))
 except Exception as e:
-    print(f"❌ Erreur de chargement : {e}")
+    print(f" Erreur de chargement : {e}")
     exit()
 
 # 🛠️ CORRECTION : On force le vecteur T (1D) à devenir une colonne 2D (3x1)
@@ -36,7 +36,7 @@ np.save(os.path.join(DOSSIER_EXTRIN, "P2.npy"), P2)
 # (Optionnel) Sauvegarder un fichier stereo_params.npz par sécurité pour ton tracker
 np.savez(os.path.join(DOSSIER_EXTRIN, "stereo_params.npz"), R=R, T=T)
 
-print("✅ Matrices P1 et P2 générées et sauvegardées avec succès !")
+print(" Matrices P1 et P2 générées et sauvegardées avec succès !")
 print("   -> P1.npy")
 print("   -> P2.npy")
 print("🚀 Ton tracker 3D est prêt à être lancé.")
