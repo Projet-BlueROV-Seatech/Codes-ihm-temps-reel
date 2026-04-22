@@ -8,7 +8,7 @@ from tkinter import messagebox
 # =================================================================
 # 1. CONFIGURATION (À CHANGER POUR CHAQUE CAMÉRA)
 # =================================================================
-# ⚠️ Modifie ces 3 lignes selon la caméra que tu calibres !
+#  Modifie ces 3 lignes selon la caméra que tu calibres !
 FICHIER_K_OUT = r"../donnees_calibration/intrinseques/K2.npy"  # (ou K1.npy)
 FICHIER_D_OUT = r"../donnees_calibration/intrinseques/D2.npy"  # (ou D1.npy)
 
@@ -47,13 +47,13 @@ if len(sys.argv) > 1:
     try:
         cam_id = int(sys.argv[1])
     except ValueError:
-        print(f"⚠️ Argument invalide ({sys.argv[1]}), utilisation de la caméra 1 par défaut.")
+        print(f" Argument invalide ({sys.argv[1]}), utilisation de la caméra 1 par défaut.")
 
-print(f"🎥 Tentative d'ouverture de la caméra ID : {cam_id}")
+print(f" Tentative d'ouverture de la caméra ID : {cam_id}")
 cap = cv2.VideoCapture(cam_id)
 
 if not cap.isOpened():
-    print(f"❌ Impossible de lire le flux video pour la caméra {cam_id}")
+    print(f" Impossible de lire le flux video pour la caméra {cam_id}")
     sys.exit()
 
 obj_points, img_points = [], []
@@ -64,15 +64,15 @@ frame_idx = 0
 img_size = None
 
 print("\n" + "="*50)
-print(f"🚀 CALIBRATION MONO DEPUIS VIDÉO")
-print(f"👉 Analyse du flux vidéo")
-print(f"👉 Sorties prévues : {FICHIER_K_OUT} et {FICHIER_D_OUT}")
+print(f" CALIBRATION MONO DEPUIS VIDÉO")
+print(f" Analyse du flux vidéo")
+print(f" Sorties prévues : {FICHIER_K_OUT} et {FICHIER_D_OUT}")
 print("="*50 + "\n")
 
 while compteur < NB_IMAGES_REQUISES:
     ret, frame = cap.read()
     if not ret:
-        print("🏁 Fin de la vidéo atteinte.")
+        print(" Fin de la vidéo atteinte.")
         break
         
     frame_idx += 1
@@ -99,7 +99,7 @@ while compteur < NB_IMAGES_REQUISES:
                 img_points.append(imgp)
                 compteur += 1
                 
-                print(f"📸 Image extraite {compteur}/{NB_IMAGES_REQUISES} (Frame {frame_idx})")
+                print(f" Image extraite {compteur}/{NB_IMAGES_REQUISES} (Frame {frame_idx})")
                 
                 # Petit flash blanc pour confirmer la capture
                 visu[:] = 255
@@ -110,7 +110,7 @@ while compteur < NB_IMAGES_REQUISES:
     
     # Vitesse de lecture (30ms = vitesse normale)
     if cv2.waitKey(30) & 0xFF == ord('q'):
-        print("⏹️ Analyse interrompue.")
+        print(" Analyse interrompue.")
         break
 
 cap.release()
@@ -124,10 +124,10 @@ popup_root = tk.Tk()
 popup_root.withdraw()
 
 if len(obj_points) >= 10:
-    print("\n⚙️ Calcul du modèle de lentille en cours...")
+    print("\n Calcul du modèle de lentille en cours...")
 
     if img_size is None:
-        print("❌ Aucune frame valide lue. Impossible de calibrer.")
+        print(" Aucune frame valide lue. Impossible de calibrer.")
         messagebox.showerror("Erreur Critique", "Aucune frame valide lue. Impossible de calibrer.")
         popup_root.destroy()
         sys.exit()
@@ -138,7 +138,7 @@ if len(obj_points) >= 10:
     )
     
     print("\n" + "="*40)
-    print(f"🎯 RÉSULTAT RMS GLOBAL : {rms:.4f} pixels")
+    print(f" RÉSULTAT RMS GLOBAL : {rms:.4f} pixels")
     print("="*40)
     
     # Affichage des incertitudes sur les paramètres intrinsèques
@@ -158,24 +158,24 @@ if len(obj_points) >= 10:
         # Enregistrement des incertitudes pour un éventuel bilan global
         np.save(FICHIER_K_OUT.replace(".npy", "_std.npy"), stdInt)
         np.save(FICHIER_D_OUT.replace(".npy", "_std.npy"), stdInt)
-        print(f"✅ SUCCÈS ! {FICHIER_K_OUT}, {FICHIER_D_OUT} et les fichiers (_std.npy) générés.")
+        print(f" SUCCÈS ! {FICHIER_K_OUT}, {FICHIER_D_OUT} et les fichiers (_std.npy) générés.")
         
         # Pop-up de succès
         messagebox.showinfo(
             "Calibration terminée", 
-            f"✅ Succès !\n\nRMS Global : {rms:.4f} pixels\nErreur moyenne : {erreur_moy_par_image:.4f} px\n\nFichiers matriciels sauvegardés."
+            f" Succès !\n\nRMS Global : {rms:.4f} pixels\nErreur moyenne : {erreur_moy_par_image:.4f} px\n\nFichiers matriciels sauvegardés."
         )
     else:
-        print(f"❌ ÉCHEC : Le RMS est trop élevé (> {SEUIL_RMS}).")
-        print("💡 La vidéo manque de diversité (bords, inclinaisons) ou est trop floue.")
+        print(f" ÉCHEC : Le RMS est trop élevé (> {SEUIL_RMS}).")
+        print(" La vidéo manque de diversité (bords, inclinaisons) ou est trop floue.")
         
         # Pop-up d'échec
         messagebox.showwarning(
             "Calibration échouée", 
-            f"❌ Échec !\n\nLe RMS est trop élevé : {rms:.4f} px\n(Le seuil maximum est de {SEUIL_RMS} px).\n\nVeuillez recommencer la vidéo."
+            f" Échec !\n\nLe RMS est trop élevé : {rms:.4f} px\n(Le seuil maximum est de {SEUIL_RMS} px).\n\nVeuillez recommencer la vidéo."
         )
 else:
-    print(f"❌ Pas assez d'images valides ({len(obj_points)} sur 10 minimum).")
+    print(f" Pas assez d'images valides ({len(obj_points)} sur 10 minimum).")
     # Pop-up d'erreur manque d'images
     messagebox.showerror(
         "Erreur de calibration", 
