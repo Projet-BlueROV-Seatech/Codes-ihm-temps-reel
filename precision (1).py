@@ -38,7 +38,7 @@ def synthese():
     ext = charger_data("donnees_calibration/extrinseques/erreurs_extrinseques.npy", is_dict=True)
     dist = charger_data("donnees_calibration/extrinseques/t_c2_c1.npy")
     
-    valeur_qualisys = 1312 # mm
+    valeur_qualisys = 1312 # mm ou mettre np.linalg.norm(dist)*1000
     delta_dist_mm = 0
     err_extr_px = 0
     
