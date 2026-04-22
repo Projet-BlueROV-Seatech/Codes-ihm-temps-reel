@@ -17,6 +17,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import sys
+import tkinter as tk
+from tkinter import messagebox, simpledialog
+
+# Initialisation d'une fenêtre Tkinter cachée pour les pop-ups
+popup_root = tk.Tk()
+popup_root.withdraw()
 
 # =============================================================================
 # 1. CONFIGURATION
@@ -25,7 +31,17 @@ DOSSIER_INTRIN = r"../donnees_calibration/intrinseques"
 DOSSIER_EXTRIN = r"../donnees_calibration/extrinseques"
 DOSSIER_ENVIRONNEMENT = r"../donnees_calibration/environnement"
 
-ID_CAM1 = 0
+# Valeur par défaut
+ID_CAM1 = 1
+
+# Récupération de l'ID envoyé par l'IHM
+if len(sys.argv) > 1:
+    try:
+        ID_CAM1 = int(sys.argv[1])
+    except ValueError:
+        print(f" Argument invalide ({sys.argv[1]}), utilisation de la caméra {ID_CAM1} par défaut.")
+
+print(f" Utilisation de la Caméra 1 (ID: {ID_CAM1}) pour le redressement du sol")
 
 # Géométrie de la mire au sol
 L_SOL   = 0.088
@@ -36,7 +52,7 @@ LIG     = 6
 DICTIONNAIRE = aruco.getPredefinedDictionary(aruco.DICT_APRILTAG_36h11)
 
 # Seuil initial (on recommande au moins 15-20 pour un bon plan)
-TARGET_ARUCOS = 15
+TARGET_ARUCOS = 12
 
 # =============================================================================
 # 2. CHARGEMENT DES INTRINSÈQUES ET EXTRINSÈQUES (Optionnel)
@@ -48,9 +64,12 @@ print("=" * 60)
 try:
     K1 = np.load(os.path.join(DOSSIER_INTRIN, "K1.npy"))
     D1 = np.load(os.path.join(DOSSIER_INTRIN, "D1.npy"))
-    print(f"✅ K1 et D1 chargés depuis : {DOSSIER_INTRIN}")
+    print(f" K1 et D1 chargés depuis : {DOSSIER_INTRIN}")
 except FileNotFoundError as e:
-    print(f"❌ Erreur : Fichier intrinsèque introuvable. ({e})")
+    print(f" Erreur : Fichier intrinsèque introuvable. ({e})")
+    # --- MODIFICATION : Pop-up erreur critique ---
+    messagebox.showerror("Erreur de Fichier", f"Fichiers intrinsèques introuvables.\nAvez-vous fait l'étape 1 ?\n\nDétails: {e}")
+    popup_root.destroy()
     sys.exit(1)
 
 # Optionnel : Charger Cam2 pour afficher sa hauteur finale
@@ -106,7 +125,7 @@ def undistordre_points(pts_px, K, D):
 # 4. FONCTION DE CALCUL ET D'AFFICHAGE 3D DU SOL
 # =============================================================================
 def executer_redressement(marq1):
-    print(f"\n🚀 Lancement du calcul du redressement sur {len(marq1)} tags...")
+    print(f"\n Lancement du calcul du redressement sur {len(marq1)} tags...")
     ids_sel = sorted(list(marq1.keys()))
     
     # On filtre au cas où il y a des tags hors de la mire 6x6 (ID > 35)
@@ -124,8 +143,8 @@ def executer_redressement(marq1):
     )
 
     if not ok:
-        print("❌ solvePnP a échoué.")
-        return None, None
+        print(" solvePnP a échoué.")
+        return None, None, None
 
     R_sol, _ = cv2.Rodrigues(rvec_sol)
     proj_sol, _ = cv2.projectPoints(objp_sol, rvec_sol, tvec_sol, K1, np.zeros(5))
@@ -154,8 +173,8 @@ def executer_redressement(marq1):
     hauteur_cam1 = sol_redresse[1]
 
     # --- AFFICHAGE CONSOLE ---
-    print(f"\n📏 RÉSULTATS :")
-    print(f"   📉 Erreur géométrique du sol : {err_sol:.3f} px") # LIGNE AJOUTÉE
+    print(f"\n RÉSULTATS :")
+    print(f"    Erreur géométrique du sol : {err_sol:.3f} px") 
     print(f"   CAM1 monde : X=0.000  Y=+{hauteur_cam1:.3f}m  Z=0.000")
     if has_cam2:
         pos_cam2_w = R_redressement @ (-R_init.T @ T_init).flatten()
@@ -194,7 +213,9 @@ def executer_redressement(marq1):
 cap1 = cv2.VideoCapture(ID_CAM1)
 
 if not cap1.isOpened():
-    print(f"❌ Erreur : Impossible d'ouvrir la caméra {ID_CAM1}.")
+    print(f" Erreur : Impossible d'ouvrir la caméra {ID_CAM1}.")
+    messagebox.showerror("Erreur Caméra", f"Impossible d'ouvrir la caméra (ID: {ID_CAM1}).")
+    popup_root.destroy()
     sys.exit(1)
 
 cap1.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -203,8 +224,8 @@ cap1.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 stable_frames = 0
 capture_active = False
 
-print(f"\n🟢 Démarrage du flux. Objectif : {TARGET_ARUCOS} ArUcos.")
-print("👉 Posez votre mire SUR LE SOL et appuyez sur 'ENTRÉE' pour lancer l'analyse de stabilité.")
+print(f"\n Démarrage du flux. Objectif : {TARGET_ARUCOS} ArUcos.")
+print(" Posez votre mire SUR LE SOL et appuyez sur 'ENTRÉE' pour lancer l'analyse de stabilité.")
 
 while True:
     ret1, frame1 = cap1.read()
@@ -244,44 +265,61 @@ while True:
     # Gestion du clavier
     key = cv2.waitKey(1)
     if key == ord('q'):
-        print("❌ Quitté par l'utilisateur.")
+        print(" Quitté par l'utilisateur.")
         break
     elif key == 13: # 13 correspond à la touche ENTRÉE
         capture_active = True
         stable_frames = 0
-        print("\n▶️ Analyse de stabilité en cours (10 frames requises)...")
+        print("\n Analyse de stabilité en cours (10 frames requises)...")
 
     # Si on a 10 frames stables
     if stable_frames >= 10:
-        print("\n⏸️ 10 frames stables atteintes. Flux en pause. Calcul en cours...")
+        print("\n 10 frames stables atteintes. Flux en pause. Calcul en cours...")
         
         R_redressement, h_cam1, err_sol = executer_redressement(marq1)
         
         if R_redressement is not None:
-            choix = input("👉 Ce redressement de sol vous convient-il ? (O/N) : ").strip().lower()
+            # --- MODIFICATION : Remplacement de input() par des boîtes de dialogue ---
+            valide = messagebox.askyesno(
+                "Validation du redressement",
+                f"La vue 3D a été fermée.\n\n"
+                f"RÉSULTATS :\n"
+                f"• Erreur géométrique du sol : {err_sol:.3f} px\n"
+                f"• Hauteur Caméra 1 : {h_cam1[0]:.3f} m\n\n"
+                f"Ce redressement de sol vous convient-il ?"
+            )
             
-            if choix == 'o':
+            if valide:
+                os.makedirs(DOSSIER_ENVIRONNEMENT, exist_ok=True)
                 np.save(os.path.join(DOSSIER_ENVIRONNEMENT, "R_redressement.npy"), R_redressement)
                 np.save(os.path.join(DOSSIER_ENVIRONNEMENT, "hauteur_cam1.npy"), h_cam1)
                 np.save(os.path.join(DOSSIER_ENVIRONNEMENT, "erreur_redressement.npy"), np.array([err_sol]))
-                print(f"💾 Matrices sauvegardées dans {DOSSIER_ENVIRONNEMENT}. Fin du programme.")
+                print(f" Matrices sauvegardées dans {DOSSIER_ENVIRONNEMENT}. Fin du programme.")
+                
+                messagebox.showinfo("Succès", f" Matrices de redressement sauvegardées dans :\n{DOSSIER_ENVIRONNEMENT}")
                 break
             else:
-                try:
-                    nouv_seuil = int(input(f"Entrez le nouveau nombre d'ArUcos cible (actuel = {TARGET_ARUCOS}) : "))
+                nouv_seuil = simpledialog.askinteger(
+                    "Ajustement du seuil",
+                    f"Le redressement a été rejeté.\n\nEntrez le nouveau nombre d'ArUcos cible :",
+                    initialvalue=TARGET_ARUCOS,
+                    minvalue=5,
+                    maxvalue=36
+                )
+                if nouv_seuil is not None:
                     TARGET_ARUCOS = nouv_seuil
-                except ValueError:
-                    print("Entrée invalide. Le seuil reste le même.")
                 
                 # Réinitialisation si on refuse
                 stable_frames = 0
                 capture_active = False
-                print("\n▶️ Reprise du flux vidéo... Replacez la mire au sol et appuyez sur ENTRÉE.")
+                print("\n Reprise du flux vidéo... Replacez la mire au sol et appuyez sur ENTRÉE.")
         else:
             # En cas d'échec du solvePnP
+            messagebox.showwarning("Échec du calcul", "L'algorithme PnP n'a pas pu résoudre la position du sol.\nVeuillez vérifier la mire et recommencer.")
             stable_frames = 0
             capture_active = False
-            print("\n▶️ Reprise du flux vidéo... L'algorithme n'a pas pu résoudre la position.")
+            print("\n Reprise du flux vidéo... L'algorithme n'a pas pu résoudre la position.")
 
 cap1.release()
 cv2.destroyAllWindows()
+popup_root.destroy()
