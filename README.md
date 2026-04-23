@@ -107,8 +107,8 @@ L'IHM vous demande l'index de chaque caméra avant de lancer le script. Si vous 
 2. Le script s'ouvre et commence à analyser le flux.
 3. Déplacez la mire lentement devant la caméra en couvrant tous les coins de l'image et en l'inclinant sous différents angles. Évitez tout mouvement rapide — le flou empêche la détection des AprilTags.
 4. Le script extrait automatiquement des images toutes les 45 frames. À la fin, il affiche le **RMS de reprojection** :
-   -  `RMS < 2.0` → calibration acceptée. `K1.npy` et `D1.npy` sont sauvegardés dans `donnees_calibration/intrinseques/`.
-   -  `RMS ≥ 2.0` → calibration rejetée. Recommencez en couvrant plus de positions différentes.
+   -  `RMS < 1.5` → calibration acceptée. `K1.npy` et `D1.npy` sont sauvegardés dans `donnees_calibration/intrinseques/`.
+   -  `RMS ≥ 1.5` → calibration rejetée. Recommencez en couvrant plus de positions différentes.
 
 **Répétez pour la caméra 2** avec le bouton `1b`.
 
