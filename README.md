@@ -4,7 +4,7 @@ Ce dépôt contient le pipeline complet de tracking 3D du BlueROV2, réorganisé
 
 Le principe reste le même que le pipeline précédent : YOLO détecte le robot dans chaque caméra, on triangule les deux points 2D pour reconstruire sa position en 3D, et on l'affiche en temps réel. L'IHM ajoute simplement une couche de confort pour l'utilisation sur le terrain.
 
-Le fichier precision.py permet d'évaluer la précision des mesures qui viennent d'être récupérées.
+Le fichier precision.py permet d'évaluer la précision des mesures qui viennent d'être récupérées. Attention à bien corriger 'valeur_qualisys' qui correspond à la distance mesurée par un mètre ou par qualisys entre 2 caméras (en millimètre) et 'Z_distance_m' qui est la distance moyenne du robot par rapport aux caméras (en mètres).
 
 >  Ce repo s'appuie sur le pipeline décrit dans le [repo YOLO](lien_vers_repo_YOLO). Si vous n'avez jamais fait la calibration, lisez d'abord ce repo pour comprendre ce que chaque étape fait.
 >
