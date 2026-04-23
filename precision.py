@@ -48,7 +48,7 @@ def synthese():
         
     if ext is not None:
         print(f"[2] EXTRINSÈQUE  : Erreur de reprojection CAM1-Mire   : {ext['reprojection_cam1_px']:.4f} px")
-        print(f"[2] EXTRINSÈQUE  : Erreur de reprojection CAM2-CAM1   : {ext['reprojection_cam2_px']:.4f} px")
+        print(f"[2] EXTRINSÈQUE  : Erreur de reprojection CAM2-Mire   : {ext['reprojection_cam2_px']:.4f} px")
         # Moyenne des erreurs de reprojection
         err_extr_px = (ext['reprojection_cam1_px'] + ext['reprojection_cam2_px']) / 2
 
